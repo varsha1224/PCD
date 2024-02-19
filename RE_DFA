@@ -1,0 +1,262 @@
+# PS 5 - Regular Expression to NFA
+
+
+def findRelation(symbols, expr):    # splits the relations into smaller relations
+    relations = []  # to hold the relations derived from the expression
+    stack = []
+
+    # add the initial symbols first
+    for symbol in symbols:
+        if symbol not in relations:
+            relations.append(symbol)
+
+    i = 0
+    while i < len(expr):
+        char = expr[i]
+        if char == '(':
+            stack.append(char)
+        elif char == ')':
+            subexpr = ''
+            while stack[-1] != '(':
+                subexpr = stack.pop() + subexpr
+            stack.pop()
+
+            if i + 1 < len(expr) and expr[i + 1] == '*':
+                relations.append(f'({subexpr})')
+                relations.append(f'({subexpr})*')
+                i += 1
+            else:
+                relations.append(f'({subexpr})')
+        elif char != '*':
+            stack.append(char)
+        i += 1
+
+    return relations
+
+symbols = input("Enter input symbols separated by space: ").split()
+expr = input("Enter the expression: ")
+relations = findRelation(symbols, expr)
+relationTable = {}
+for i in range(len(relations)):
+  relationTable['r' + str(i + 1)] = relations[i]
+print(relationTable)
+
+# STAGE 1
+
+def constructNFA(relationTable):
+  stateTable = {}
+  singleRel = []
+  for k, v in relationTable.items():
+    if len(v) == 1:
+      stateTable['0-' + k] = {v:[str('1-' + k)]}
+      singleRel.append(k)
+
+  print(stateTable)
+
+constructNFA(relationTable)
+
+# STAGE 2
+
+def constructNFA(relationTable):
+  stateTable = {}
+  singleRel = []
+  for k, v in relationTable.items():
+    if len(v) == 1:
+      singleRel.append(k)
+    if v.endswith('*'):
+      pass
+      #stateTable[] = {}
+    else:
+      if len(v) > 1:
+        valueForSingle = []
+        for i in range(len(singleRel)):
+          valueForSingle.append(str('0-' + singleRel[i]))
+        #print(valueForSingle)
+        stateTable['0-' + k] = {'e' : valueForSingle}
+        stateTable['1-' + k] = {}
+        for i in range(int(k[-1]) - 1):
+          stateTable['0-' + singleRel[i]] = {relationTable[singleRel[i]] : str('1-' + k)}
+          stateTable['1-' + singleRel[i]] = {'e' : str('1-' + k)}
+
+  print(stateTable)
+
+constructNFA(relationTable)
+
+# STAGE 3
+
+def constructNFA(relationTable):
+  stateTable = {}
+  singleRel = []
+  lastVal = list(relationTable.keys())[-1]
+  for k, v in relationTable.items():
+    if len(v) == 1:
+      singleRel.append(k)
+  for k, v in relationTable.items():
+    if v.endswith('*'):
+      lastVal = k
+      nextRel = str('r' + str(int(singleRel[-1][-1]) + 1))
+      stateTable['0-' + k] = {'e' : [str('0-' + nextRel), str('0-' + k)]}
+      stateTable['1-' + k] = {}
+    else:
+      if len(v) > 1:
+        valueForSingle = []
+        for i in range(len(singleRel)):
+          valueForSingle.append(str('0-' + singleRel[i]))
+        #print(valueForSingle)
+        stateTable['0-' + k] = {'e' : valueForSingle}
+        stateTable['1-' + k] = {'e' : [str('0-' + k), str('1-' + lastVal)]}
+        for i in range(int(k[-1]) - 1):
+          stateTable['0-' + singleRel[i]] = {relationTable[singleRel[i]] : str('1-' + k)}
+          stateTable['1-' + singleRel[i]] = {'e' : str('1-' + k)}
+
+  print(stateTable)
+
+constructNFA(relationTable)
+
+def epsilonClosure(stateTable):
+    closure = {}
+    for state in stateTable.keys():
+        # Initialize the closure for the state with the state itself
+        closure[state] = {state}
+        # Use a stack for DFS
+        stack = [state]
+        while stack:
+            currState = stack.pop()
+            # Check if currState has epsilon transitions
+            if currState in stateTable and 'e' in stateTable[currState]:
+                for nextState in stateTable[currState]['e']:
+                    # Add nextState to closure if not already included
+                    if nextState not in closure[state]:
+                        closure[state].add(nextState)
+                        stack.append(nextState)
+    return closure
+
+stateTable = {
+    '0-r3': {'e': ['0-r1', '0-r2']},
+    '1-r3': {'e': ['0-r3', '1-r4']},
+    '0-r1': {'a': ['1-r3']},  
+    '1-r1': {'e': ['1-r3']},
+    '0-r2': {'b': ['1-r3']},
+    '1-r2': {'e': ['1-r3']},
+    '0-r4': {'e': ['0-r3', '0-r4']},
+    '1-r4': {}
+}
+
+closure = epsilonClosure(stateTable)
+for state, eclosure in closure.items():
+    print(f"Epsilon closure of {state}: {eclosure}")
+
+Epsilon closure of 0-r3: {'0-r2', '0-r1', '0-r3'}
+Epsilon closure of 1-r3: {'1-r4', '0-r1', '0-r3', '0-r2', '1-r3'}
+Epsilon closure of 0-r1: {'0-r1'}
+Epsilon closure of 1-r1: {'1-r4', '1-r1', '0-r1', '0-r3', '0-r2', '1-r3'}
+Epsilon closure of 0-r2: {'0-r2'}
+Epsilon closure of 1-r2: {'1-r2', '1-r4', '0-r1', '0-r3', '0-r2', '1-r3'}
+Epsilon closure of 0-r4: {'0-r4', '0-r1', '0-r2', '0-r3'}
+Epsilon closure of 1-r4: {'1-r4'}
+
+
+# PS 6 - NFA to DFA
+
+def epsilonClosure(stateTable, state):
+  closure = {state}
+  stack = [state]
+
+  while stack:
+    curr = stack.pop()
+    if curr in stateTable and 'e' in stateTable[curr]:
+        for nextState in stateTable[curr]['e']:
+          if nextState not in closure:
+            closure.add(nextState)
+            stack.append(nextState)
+
+  return closure
+
+def inputSym(stateTable, state, symbol):
+  closure = set()
+  
+  if state in stateTable and symbol in stateTable[state]:
+    for nextState in stateTable[state][symbol]:
+      if nextState not in closure:
+            closure.add(nextState)
+
+  return closure
+
+def nextState(stateTable, currStates, symbol):
+    move = set()
+    for currState in currStates:  
+        move.update(inputSym(stateTable, currState, symbol))  
+    
+    epsilonClosureSet = set()
+    for state in move:
+        epsilonClosureSet.update(epsilonClosure(stateTable, state))
+    
+    return epsilonClosureSet
+
+def convertToDFA(stateTable, startState):
+    processedStates = set()
+    allStates = [epsilonClosure(stateTable, startState)]
+    dfa = {}
+    stateQueue = [frozenset(allStates[0])]  
+
+    while stateQueue:
+        currentState = stateQueue.pop(0)
+        currentStateID = ''.join(sorted(currentState))  
+
+        if currentStateID not in processedStates:
+            processedStates.add(currentStateID)
+            dfa[currentStateID] = {}
+
+            for symbol in ['a', 'b']:
+                nextStateSet = nextState(stateTable, currentState, symbol)
+                nextStateID = ''.join(sorted(nextStateSet))
+                
+                if nextStateSet and frozenset(nextStateSet) not in stateQueue and frozenset(nextStateSet) not in processedStates:
+                    stateQueue.append(frozenset(nextStateSet))
+                    allStates.append(nextStateSet)
+
+                if nextStateSet:
+                    dfa[currentStateID][symbol] = nextStateID
+
+    return dfa
+
+# to name the states as A, B and so on
+def convertDict(originalDict):
+    stateMapping = {}
+    nextName = 'A'
+    for state in originalDict.keys():
+        if state not in stateMapping:
+            stateMapping[state] = nextName
+            nextName = chr(ord(nextName) + 1)  # increment to the next letter
+    
+    simplifiedDict = {}
+    for state, transitions in originalDict.items():
+        simplifiedState = stateMapping[state]
+        simplifiedTransitions = {}
+        for symbol, nextState in transitions.items():
+            simplifiedNextState = stateMapping[nextState]
+            simplifiedTransitions[symbol] = simplifiedNextState
+        simplifiedDict[simplifiedState] = simplifiedTransitions
+    
+    return simplifiedDict
+
+stateTable = {
+    '0-r4': {'e': ['0-r3', '0-r4']},
+    '0-r3': {'e': ['0-r1', '0-r2']}, 
+    '1-r3': {'e': ['0-r3', '1-r4']},
+    '0-r1': {'a': ['1-r3']},
+    '1-r1': {'e': ['1-r3']},
+    '0-r2': {'b': ['1-r3']},
+    '1-r2': {'e': ['1-r3']},
+    '1-r4': {}
+}
+
+startState = '0-r4'
+dfa = convertToDFA(stateTable, startState)
+
+dfa = convertDict(dfa) # names alone
+
+for state, transitions in dfa.items():
+    print(f"State {state}:")
+    for symbol, nextState in transitions.items():
+        print(f"Input symbol '{symbol}' -> State {nextState}")
